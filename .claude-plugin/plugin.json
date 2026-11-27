@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
   "name": "agent-guard",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Runtime guard for Claude Code: checks every tool call before it runs, blocks or asks about rogue actions (destructive commands, credential theft, exfiltration, prompt-injection hijacks), and keeps a tamper-evident audit log mapped to the OWASP Agentic Top 10.",
   "author": {
     "name": "Eshan Pandey",
@@ -10,5 +10,13 @@
   "homepage": "https://github.com/eshanpandey/agent-guard",
   "repository": "https://github.com/eshanpandey/agent-guard",
   "license": "Apache-2.0",
-  "keywords": ["security", "ai-safety", "prompt-injection", "guardrails", "audit", "owasp", "agents"]
+  "keywords": [
+    "security",
+    "ai-safety",
+    "prompt-injection",
+    "guardrails",
+    "audit",
+    "owasp",
+    "agents"
+  ]
 }

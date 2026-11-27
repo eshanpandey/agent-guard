@@ -46,6 +46,7 @@ class Policy:
     max_identical_calls: int = 6
     disabled_rules: set[str] = field(default_factory=set)
     custom_rules: list[CustomRule] = field(default_factory=list)
+    classifier: dict[str, Any] | None = None
 
     def domain_allowed(self, host: str) -> bool:
         host = host.lower().strip(".")
@@ -198,6 +199,7 @@ def from_dict(data: dict[str, Any]) -> Policy:
         max_identical_calls=int(rl.get("max_identical_calls", 6)),
         disabled_rules=set(merged.get("disabled_rules") or []),
         custom_rules=custom,
+        classifier=merged.get("classifier") or None,
     )
 
 
