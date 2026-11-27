@@ -65,12 +65,12 @@ class SessionState:
 
 
     def add_instruction(self, strength: str, source: str, entities: set[str], tokens: set[str],
-                        source_ref: list[str] | None = None) -> None:
+                        source_ref: list[str] | None = None, doc_entities: int = 0) -> None:
         # source_ref: entities and words of the call that produced the output (e.g. a file name),
         # used to tell whether the user pointed the agent at that document.
         self.data_instructions = (self.data_instructions + [
             {"strength": strength, "source": source, "entities": sorted(entities), "tokens": sorted(tokens),
-             "source_ref": source_ref or []}])[-_MAX_CALLS:]
+             "source_ref": source_ref or [], "doc_entities": doc_entities}])[-_MAX_CALLS:]
 
     def add_clean_entities(self, entities: set[str]) -> None:
         self.clean_entities = sorted(set(self.clean_entities) | entities)[-2000:]
@@ -93,6 +93,10 @@ class SessionState:
         from .provenance import ACTION_WORDS, stem
         named = set(self.user_identifiers)
         if ins["strength"] != "weak" or not (set(ins.get("source_ref", [])) & named):
+            return False
+        # A document naming several accounts or addresses is ambiguous (one may be planted):
+        # only a document with a single one counts as pointing the agent at it.
+        if ins.get("doc_entities", 0) > 1:
             return False
         # ...and the document asks for the same kind of action the user asked for
         # ("pay the bill in bill.txt" -> the bill says "please pay to IBAN ...").

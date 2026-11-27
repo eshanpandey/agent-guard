@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agentguard"
-version = "0.3.0"
+version = "0.3.1"
 description = "Detect and stop rogue AI agent behaviour: a runtime guard for Claude Code, MCP clients and custom agents."
 readme = "README.md"
 license = { text = "Apache-2.0" }

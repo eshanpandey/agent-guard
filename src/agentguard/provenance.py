@@ -68,6 +68,21 @@ def identifiers(value) -> set[str]:
             if len(m.group(0)) >= 6 and not _DATE_LIKE.fullmatch(m.group(0))}
 
 
+_FIELD = re.compile(r"""["']?[A-Za-z_][\w .-]{0,40}["']?\s*[:=]\s*["']?([^\s"',}\]]+)["']?\s*(?=[,}\]\n]|$)""", re.M)
+
+
+def field_entities(text: str) -> set[str]:
+    """Entities that are the whole value of a structured field (recipient: GB29..., "to": "a@b.com").
+
+    A value buried in a sentence ("...please send it to GB29...") is prose, which is
+    where injected requests live, so it does not count.
+    """
+    out: set[str] = set()
+    for m in _FIELD.finditer(text or ""):
+        out |= entities(m.group(1))
+    return out
+
+
 def entities(text: str) -> set[str]:
     text = text or ""
     found = {m.group(0).lower() for m in _EMAIL.finditer(text)}

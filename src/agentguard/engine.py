@@ -78,14 +78,17 @@ class Engine:
         instructions = pv.find_instructions(text)
         source_ref = pv.identifiers(call.args)
         in_spans: set[str] = set()
+        all_entities = pv.entities(text)
         for strength, span in instructions:
             ents = pv.entities(span)
             in_spans |= ents
-            state.add_instruction(strength, call.tool, ents, pv.tokens(span), sorted(source_ref))
+            state.add_instruction(strength, call.tool, ents, pv.tokens(span), sorted(source_ref),
+                                  doc_entities=len(all_entities))
         if not findings and not any(strength == "strong" for strength, _ in instructions):
-            # Values outside any instruction, in output with no injection, count as ordinary
-            # data the user's task can use (e.g. an IBAN in the transaction history).
-            state.add_clean_entities(pv.entities(text) - in_spans)
+            # Values that are whole structured fields (recipient: GB29...), outside any
+            # instruction, in output with no injection, count as ordinary data the user's
+            # task can use (e.g. a sender in the transaction history).
+            state.add_clean_entities(pv.field_entities(text) - in_spans)
         self.store.save(call.session_id, state)
         # Injected content is never blocked itself: we flag it and watch what the agent does next.
         verdict = Verdict(Decision.FLAG if findings else Decision.ALLOW, findings)

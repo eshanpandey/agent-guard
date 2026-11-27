@@ -1,12 +1,13 @@
 {
-  "label": "v0.3d",
+  "label": "v0.3.1",
   "split": "dev",
-  "agentguard_version": "0.2.0",
+  "agentguard_version": "0.3.0",
   "python": "3.13.18",
   "machine": "x86_64",
   "processor": "x86_64",
   "user_prompt_visible": true,
-  "created": "2026-11-27T20:38:09Z",
+  "policy": null,
+  "created": "2026-11-27T20:41:24Z",
   "datasets": {
     "agentdojo:important_instructions": {
       "traces": 406,
@@ -142,11 +143,11 @@
       },
       "latency": {
         "calls": 1849,
-        "mean_us": 843.9,
-        "p50_us": 545.2,
-        "p95_us": 2249.4,
-        "p99_us": 6044.9,
-        "max_us": 25647.1
+        "mean_us": 1194.6,
+        "p50_us": 650.0,
+        "p95_us": 3696.0,
+        "p99_us": 11108.1,
+        "max_us": 50257.8
       }
     },
     "agentdojo:direct": {
@@ -283,11 +284,11 @@
       },
       "latency": {
         "calls": 1849,
-        "mean_us": 1064.3,
-        "p50_us": 454.5,
-        "p95_us": 2620.0,
-        "p99_us": 20990.0,
-        "max_us": 31878.5
+        "mean_us": 1338.8,
+        "p50_us": 563.6,
+        "p95_us": 3827.3,
+        "p99_us": 23767.8,
+        "max_us": 41929.5
       }
     },
     "injecagent:base": {
@@ -417,11 +418,11 @@
       },
       "latency": {
         "calls": 1285,
-        "mean_us": 243.9,
-        "p50_us": 155.9,
-        "p95_us": 526.8,
-        "p99_us": 615.9,
-        "max_us": 668.0
+        "mean_us": 319.1,
+        "p50_us": 156.5,
+        "p95_us": 777.1,
+        "p99_us": 897.6,
+        "max_us": 1388.9
       }
     },
     "injecagent:enhanced": {
@@ -551,11 +552,11 @@
       },
       "latency": {
         "calls": 1285,
-        "mean_us": 225.4,
-        "p50_us": 171.8,
-        "p95_us": 390.0,
-        "p99_us": 512.5,
-        "max_us": 1839.3
+        "mean_us": 257.7,
+        "p50_us": 181.4,
+        "p95_us": 480.4,
+        "p99_us": 713.3,
+        "max_us": 2362.5
       }
     },
     "rjudge": {
@@ -671,11 +672,11 @@
       },
       "latency": {
         "calls": 585,
-        "mean_us": 386.9,
-        "p50_us": 348.7,
-        "p95_us": 743.0,
-        "p99_us": 1223.4,
-        "max_us": 2886.3
+        "mean_us": 494.2,
+        "p50_us": 413.4,
+        "p95_us": 1044.0,
+        "p99_us": 1293.2,
+        "max_us": 4789.6
       }
     }
   }
