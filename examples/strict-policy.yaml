@@ -1,0 +1,14 @@
+# Example: a stricter policy for an agent with production access.
+mode: enforce
+change_freeze: true
+allowed_domains: [github.com, pypi.org, files.pythonhosted.org, api.internal.example]
+allowed_email_domains: [acme.example]
+rate_limits:
+  max_messages: 5
+custom_rules:
+  - id: no_billing_tables
+    pattern: "(?i)\\b(invoices|payments|billing)\\b"
+    tools: "(?i)bash|sql"
+    severity: high
+    message: "Touches billing data"
+    owasp: [ASI03]

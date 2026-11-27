@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentguard"
+version = "0.1.0"
+description = "Detect and stop rogue AI agent behaviour: a runtime guard for Claude Code, MCP clients and custom agents."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = ["click>=8.1", "PyYAML>=6.0"]
+keywords = ["ai-safety", "ai-agents", "llm-security", "mcp", "owasp", "guardrails"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Security",
+  "License :: OSI Approved :: Apache Software License",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+agentguard = "agentguard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agentguard = ["default_policy.yaml", "scenarios/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,50 @@
+# Agent Guard default policy.
+# Copy it with `agentguard init` and edit to suit your project.
+
+# monitor: never interrupt, only log and flag
+# guard:   block critical actions, ask a human about high-risk ones (default)
+# enforce: block high and critical actions, ask about medium ones
+mode: guard
+
+# Files outside this folder count as "outside the workspace". Defaults to the agent's cwd.
+workspace: null
+
+# Network destinations the agent may send data to without a finding.
+allowed_domains:
+  - github.com
+  - api.github.com
+  - raw.githubusercontent.com
+  - pypi.org
+  - files.pythonhosted.org
+  - registry.npmjs.org
+  - huggingface.co
+  - localhost
+  - 127.0.0.1
+
+# Email domains the agent may send to. Empty list = only BCCs and secrets are checked.
+allowed_email_domains: []
+
+# Set to true during a code freeze: any write to production becomes critical.
+change_freeze: false
+
+# Words that mark a command or connection string as production.
+production_markers: [prod, production, live-db]
+
+rate_limits:
+  window_seconds: 60
+  max_calls_per_tool: 40      # any single tool
+  max_messages: 10            # emails, chat messages, SMS
+  max_identical_calls: 6      # the exact same call in a row
+
+# Rule ids to switch off, e.g. [unpinned_model]
+disabled_rules: []
+
+# Your own rules. `pattern` is a regular expression matched against the tool
+# arguments; `tools` (optional) limits the rule to tool names matching a regex.
+custom_rules: []
+#  - id: no_customer_table
+#    pattern: "customers"
+#    tools: "(?i)sql|bash"
+#    severity: high
+#    message: "Touches the customers table"
+#    owasp: [ASI03]
