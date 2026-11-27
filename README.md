@@ -4,15 +4,16 @@
 
 Each detection rule comes from a real incident. Out of the box it catches **16 of 16 replayed real-world incidents**, from the Replit database wipe to the ClawHub skill malware, and flags **0 of 4 normal sessions**.
 
-It is also measured on public research benchmarks, on held-out test splits ([full evaluation](EVALUATION.md)):
+It is also measured on public research benchmarks, on held-out test splits, and on new injection wordings that were frozen in git before Agent Guard ever saw them ([full evaluation](EVALUATION.md)). Results are for v0.3.1:
 
 | Benchmark | Attacks caught | Benign flagged | Latency p50 |
 | --- | --- | --- | --- |
-| AgentDojo (`important_instructions` / `direct` attack) | 84.8% / 44.3% | 16.7% | 0.26 ms |
-| InjecAgent (enhanced / base) | 84.8% / 35.5% | 0% | 0.2 ms |
-| R-Judge unsafe-record detection | F1 0.73 | 0.8% | 0.3 ms |
+| AgentDojo (`important_instructions` / `direct` attack) | 100% / 44.3% | 0% (0/36) | 0.4–0.5 ms |
+| Fresh, never-seen injection templates (AgentDojo tasks) | 21–37% | 0% (0/97) | 0.5 ms |
+| InjecAgent (enhanced / base) | 84.9% / 35.5% | 0% | 0.2 ms |
+| R-Judge unsafe-record detection | 57.4% (F1 0.73) | 0% | 0.4 ms |
 
-The weakest case is plain-language injections. [EVALUATION.md](EVALUATION.md) covers the method, comparisons with published guards, and every known limitation.
+The weakest case is plain-language injections. An optional classifier stage is built for it but not yet measured. [EVALUATION.md](EVALUATION.md) covers the method, comparisons with published guards, and every known limitation.
 
 ```
 $ agentguard check Bash -c "q chat --trust-all-tools --no-interactive 'delete cloud resources'"
@@ -75,7 +76,34 @@ flowchart LR
 | `data_instruction_followed` | the agent does what text inside tool output asked, e.g. reuses an email, URL or account number planted there, and the user never asked for it | ASI01, ASI06 |
 | `runaway_agent` | message floods, loops, per-tool rate limits | ASI10, ASI08 |
 
-## Quick start
+## Install as a Claude Code plugin
+
+The fastest way to protect Claude Code. In Claude Code, run:
+
+```
+/plugin install agent-guard --marketplace eshanpandey/agent-guard
+```
+
+On Claude Code versions before 2.1.275, add the marketplace first:
+
+```
+/plugin marketplace add eshanpandey/agent-guard
+/plugin install agent-guard@agent-guard
+```
+
+That's it. No `pip install` is needed: the plugin runs the bundled code on the system's Python 3.10+ (`python3`). From then on every tool call goes through Agent Guard. Critical actions are refused with the reason shown to Claude, high-risk ones bring up the normal approval prompt, and tool output with injected instructions gets a warning added to Claude's context.
+
+| Command | What it does |
+| --- | --- |
+| `/agent-guard:report` | Summary of blocks, approvals and flags by OWASP Agentic Top 10 category |
+| `/agent-guard:recent [n]` | The last flagged, blocked or asked-about tool calls |
+| `/agent-guard:verify-log` | Proves the audit log was not edited, reordered or truncated |
+| `/agent-guard:status` | Active mode, policy and log location |
+| `/agent-guard:check <tool> <input>` | What Agent Guard would do with a call, without running it |
+
+Policies work the same as below: put a `.agentguard.yaml` in the project. Without PyYAML installed the plugin reads simple policies (mode, lists, rate limits, `change_freeze`); `custom_rules` need `pip install pyyaml`. If a policy can't be read, the plugin keeps using the default policy and says so, rather than switching off.
+
+## Quick start (Python package)
 
 ```bash
 pip install -e .            # Python 3.10+
@@ -87,7 +115,7 @@ agentguard check Bash -c "cat ~/.aws/credentials"
 
 | You use | Set it up with | How it's tested |
 | --- | --- | --- |
-| Claude Code | `agentguard install claude-code` | unit tests; live in Claude Code |
+| Claude Code | the plugin (above), or `agentguard install claude-code` | unit tests; live in Claude Code |
 | OpenAI Codex CLI | `agentguard install codex` | real Codex CLI 0.172 run in CI |
 | Gemini CLI | `agentguard install gemini` | real Gemini CLI 0.71 run in CI |
 | GitHub Copilot CLI and cloud coding agent | `agentguard install copilot` | real Copilot CLI 1.0.117 run in CI |
@@ -178,6 +206,24 @@ custom_rules:
     message: Touches billing data
 ```
 
+### Optional classifier stage
+
+For plain-language injections the rules miss, turn on a model-based second stage. It only scores tool output that the rules found clean, and only for tools that read rather than change things:
+
+```yaml
+classifier:
+  backend: promptguard        # Llama Prompt Guard 2, local: pip install transformers torch
+  model: meta-llama/Llama-Prompt-Guard-2-86M
+  threshold: 0.5
+# or: backend: anthropic      # a task-aware Claude judge; needs ANTHROPIC_API_KEY
+```
+
+If the classifier fails, Agent Guard logs the error and carries on with the rules. This stage is not yet evaluated (see EVALUATION.md).
+
+### Payments the user asked for
+
+When Agent Guard can see the user's request (Claude Code's `UserPromptSubmit` hook, or `Engine.observe_user`), it allows a payment without asking when the user asked for one and every recipient came from their request, from a structured field of clean tool output, or from a document they named. Recipients planted in prose or in instructions inside tool output still need approval. This is a simplified version of the capability idea in [CaMeL](https://arxiv.org/abs/2503.18813).
+
 ## Audit and reporting
 
 ```bash
@@ -190,10 +236,10 @@ agentguard report --format md       # findings by OWASP category and rule
 
 `src/agentguard/scenarios/` holds real incidents rebuilt as safe tool-call traces (defanged hosts, no payloads) plus normal sessions that must stay quiet. `agentguard replay` scores both. CI runs it on every push, so a rule change that misses an incident, or starts flagging normal work, fails the build. To add an incident, add a YAML scenario with its source link.
 
-## Limits (v0.1)
+## Limits
 
 * The rules are pattern- and state-based. A determined attacker who knows them can phrase commands to avoid them. Agent Guard is one layer, alongside least-privilege credentials and sandboxing.
-* Injection detection uses phrase patterns plus instruction-provenance tracking, not a classifier. Recall on plain-language injections is 35–60% (see EVALUATION.md). A model-based second stage is the top roadmap item.
+* By default, injection detection uses phrase patterns plus instruction-provenance tracking, not a classifier. Recall on plain-language injections is 21–60% depending on the wording (see EVALUATION.md). The optional classifier stage is built for this gap but not yet measured.
 * Hook mode fails open: if Agent Guard itself crashes, the agent keeps working, and the error goes to stderr.
 * MCP, the API proxy, Codex hooks and Gemini CLI hooks have no "ask a human" round-trip, so `ask` decisions are blocked there, with the reason shown. (`agentguard api-proxy --on-ask allow` lets them through as flags.)
 * The API proxy sees what the model asked for, not what the agent finally ran. Hooks see the real call, so use hooks where the agent has them.
@@ -201,7 +247,7 @@ agentguard report --format md       # findings by OWASP category and rule
 
 ## Roadmap
 
-1. Pluggable ML injection classifier, with Llama Prompt Guard and similar as optional backends
+1. Measure the classifier stage and a live-agent run with a real model
 2. Short-lived, task-scoped credential broker
 3. Web dashboard, plus OpenTelemetry and SIEM export
 4. Pre-install scanner for skills, MCP servers and model files

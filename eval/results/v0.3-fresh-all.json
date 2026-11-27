@@ -1,0 +1,446 @@
+{
+  "label": "v0.3-fresh",
+  "split": "all",
+  "agentguard_version": "0.3.0",
+  "python": "3.13.18",
+  "machine": "x86_64",
+  "processor": "x86_64",
+  "user_prompt_visible": true,
+  "policy": null,
+  "created": "2026-11-27T20:39:40Z",
+  "datasets": {
+    "agentdojo:fresh_polite": {
+      "traces": 706,
+      "harmful_traces": 609,
+      "labelled_calls": 3479,
+      "malicious_calls": 1105,
+      "by_threshold": {
+        "low": {
+          "call": {
+            "tp": 411,
+            "fp": 132,
+            "fn": 694,
+            "tn": 2242,
+            "precision": 0.7569,
+            "recall": 0.3719,
+            "f1": 0.4988,
+            "fpr": 0.0556,
+            "specificity": 0.9444
+          },
+          "trace": {
+            "tp": 293,
+            "fp": 15,
+            "fn": 316,
+            "tn": 82,
+            "precision": 0.9513,
+            "recall": 0.4811,
+            "f1": 0.639,
+            "fpr": 0.1546,
+            "specificity": 0.8454
+          },
+          "fp_rules": {
+            "tainted_action": 72,
+            "acts_on_behalf": 60,
+            "data_instruction_followed": 14
+          },
+          "tp_rules": {
+            "tainted_action": 176,
+            "acts_on_behalf": 144,
+            "data_instruction_followed": 85,
+            "destructive_command": 61
+          }
+        },
+        "medium": {
+          "call": {
+            "tp": 200,
+            "fp": 23,
+            "fn": 905,
+            "tn": 2351,
+            "precision": 0.8969,
+            "recall": 0.181,
+            "f1": 0.3012,
+            "fpr": 0.0097,
+            "specificity": 0.9903
+          },
+          "trace": {
+            "tp": 137,
+            "fp": 2,
+            "fn": 472,
+            "tn": 95,
+            "precision": 0.9856,
+            "recall": 0.225,
+            "f1": 0.3663,
+            "fpr": 0.0206,
+            "specificity": 0.9794
+          },
+          "fp_rules": {
+            "data_instruction_followed": 14,
+            "tainted_action": 14,
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 85,
+            "destructive_command": 61,
+            "tainted_action": 55,
+            "acts_on_behalf": 54
+          }
+        },
+        "high": {
+          "call": {
+            "tp": 112,
+            "fp": 9,
+            "fn": 993,
+            "tn": 2365,
+            "precision": 0.9256,
+            "recall": 0.1014,
+            "f1": 0.1827,
+            "fpr": 0.0038,
+            "specificity": 0.9962
+          },
+          "trace": {
+            "tp": 74,
+            "fp": 0,
+            "fn": 535,
+            "tn": 97,
+            "precision": 1.0,
+            "recall": 0.1215,
+            "f1": 0.2167,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 58,
+            "acts_on_behalf": 54,
+            "tainted_action": 29
+          }
+        },
+        "critical": {
+          "call": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1105,
+            "tn": 2374,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "trace": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 609,
+            "tn": 97,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {},
+          "tp_rules": {}
+        }
+      },
+      "latency": {
+        "calls": 3479,
+        "mean_us": 953.5,
+        "p50_us": 427.3,
+        "p95_us": 2467.3,
+        "p99_us": 22975.0,
+        "max_us": 41581.0
+      }
+    },
+    "agentdojo:fresh_record": {
+      "traces": 706,
+      "harmful_traces": 609,
+      "labelled_calls": 3479,
+      "malicious_calls": 1105,
+      "by_threshold": {
+        "low": {
+          "call": {
+            "tp": 515,
+            "fp": 154,
+            "fn": 590,
+            "tn": 2220,
+            "precision": 0.7698,
+            "recall": 0.4661,
+            "f1": 0.5806,
+            "fpr": 0.0649,
+            "specificity": 0.9351
+          },
+          "trace": {
+            "tp": 367,
+            "fp": 15,
+            "fn": 242,
+            "tn": 82,
+            "precision": 0.9607,
+            "recall": 0.6026,
+            "f1": 0.7407,
+            "fpr": 0.1546,
+            "specificity": 0.8454
+          },
+          "fp_rules": {
+            "tainted_action": 72,
+            "acts_on_behalf": 60,
+            "data_instruction_followed": 37
+          },
+          "tp_rules": {
+            "data_instruction_followed": 255,
+            "tainted_action": 176,
+            "acts_on_behalf": 144,
+            "destructive_command": 61
+          }
+        },
+        "medium": {
+          "call": {
+            "tp": 344,
+            "fp": 45,
+            "fn": 761,
+            "tn": 2329,
+            "precision": 0.8843,
+            "recall": 0.3113,
+            "f1": 0.4605,
+            "fpr": 0.019,
+            "specificity": 0.981
+          },
+          "trace": {
+            "tp": 244,
+            "fp": 2,
+            "fn": 365,
+            "tn": 95,
+            "precision": 0.9919,
+            "recall": 0.4007,
+            "f1": 0.5708,
+            "fpr": 0.0206,
+            "specificity": 0.9794
+          },
+          "fp_rules": {
+            "data_instruction_followed": 37,
+            "tainted_action": 14,
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 255,
+            "tainted_action": 77,
+            "acts_on_behalf": 72,
+            "destructive_command": 61
+          }
+        },
+        "high": {
+          "call": {
+            "tp": 224,
+            "fp": 30,
+            "fn": 881,
+            "tn": 2344,
+            "precision": 0.8819,
+            "recall": 0.2027,
+            "f1": 0.3297,
+            "fpr": 0.0126,
+            "specificity": 0.9874
+          },
+          "trace": {
+            "tp": 207,
+            "fp": 0,
+            "fn": 402,
+            "tn": 97,
+            "precision": 1.0,
+            "recall": 0.3399,
+            "f1": 0.5074,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {
+            "data_instruction_followed": 22,
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 188,
+            "acts_on_behalf": 72,
+            "tainted_action": 23
+          }
+        },
+        "critical": {
+          "call": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1105,
+            "tn": 2374,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "trace": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 609,
+            "tn": 97,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {},
+          "tp_rules": {}
+        }
+      },
+      "latency": {
+        "calls": 3479,
+        "mean_us": 767.6,
+        "p50_us": 377.5,
+        "p95_us": 1819.7,
+        "p99_us": 22825.4,
+        "max_us": 24641.1
+      }
+    },
+    "agentdojo:fresh_quoted": {
+      "traces": 706,
+      "harmful_traces": 609,
+      "labelled_calls": 3479,
+      "malicious_calls": 1105,
+      "by_threshold": {
+        "low": {
+          "call": {
+            "tp": 466,
+            "fp": 132,
+            "fn": 639,
+            "tn": 2242,
+            "precision": 0.7793,
+            "recall": 0.4217,
+            "f1": 0.5473,
+            "fpr": 0.0556,
+            "specificity": 0.9444
+          },
+          "trace": {
+            "tp": 326,
+            "fp": 15,
+            "fn": 283,
+            "tn": 82,
+            "precision": 0.956,
+            "recall": 0.5353,
+            "f1": 0.6863,
+            "fpr": 0.1546,
+            "specificity": 0.8454
+          },
+          "fp_rules": {
+            "tainted_action": 72,
+            "acts_on_behalf": 60,
+            "data_instruction_followed": 14
+          },
+          "tp_rules": {
+            "data_instruction_followed": 178,
+            "tainted_action": 176,
+            "acts_on_behalf": 144,
+            "destructive_command": 61
+          }
+        },
+        "medium": {
+          "call": {
+            "tp": 274,
+            "fp": 23,
+            "fn": 831,
+            "tn": 2351,
+            "precision": 0.9226,
+            "recall": 0.248,
+            "f1": 0.3909,
+            "fpr": 0.0097,
+            "specificity": 0.9903
+          },
+          "trace": {
+            "tp": 190,
+            "fp": 2,
+            "fn": 419,
+            "tn": 95,
+            "precision": 0.9896,
+            "recall": 0.312,
+            "f1": 0.4744,
+            "fpr": 0.0206,
+            "specificity": 0.9794
+          },
+          "fp_rules": {
+            "data_instruction_followed": 14,
+            "tainted_action": 14,
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 178,
+            "tainted_action": 74,
+            "destructive_command": 61,
+            "acts_on_behalf": 54
+          }
+        },
+        "high": {
+          "call": {
+            "tp": 164,
+            "fp": 9,
+            "fn": 941,
+            "tn": 2365,
+            "precision": 0.948,
+            "recall": 0.1484,
+            "f1": 0.2567,
+            "fpr": 0.0038,
+            "specificity": 0.9962
+          },
+          "trace": {
+            "tp": 134,
+            "fp": 0,
+            "fn": 475,
+            "tn": 97,
+            "precision": 1.0,
+            "recall": 0.22,
+            "f1": 0.3607,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {
+            "acts_on_behalf": 9
+          },
+          "tp_rules": {
+            "data_instruction_followed": 110,
+            "acts_on_behalf": 54,
+            "tainted_action": 27
+          }
+        },
+        "critical": {
+          "call": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 1105,
+            "tn": 2374,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "trace": {
+            "tp": 0,
+            "fp": 0,
+            "fn": 609,
+            "tn": 97,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0,
+            "fpr": 0.0,
+            "specificity": 1.0
+          },
+          "fp_rules": {},
+          "tp_rules": {}
+        }
+      },
+      "latency": {
+        "calls": 3479,
+        "mean_us": 772.0,
+        "p50_us": 377.8,
+        "p95_us": 1837.0,
+        "p99_us": 22906.6,
+        "max_us": 24650.2
+      }
+    }
+  }
+}

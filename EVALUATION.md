@@ -1,6 +1,70 @@
 # Agent Guard evaluation
 
+Latest results: **v0.3.1** (commit `1c1a78e`), 2026-11-27. The v0.2 write-up follows below, unchanged, for comparison.
+
+```bash
+eval/fetch_datasets.sh
+python eval/run_eval.py --label v0.3.1 --split test
+python eval/run_eval.py --label v0.3.1-fresh2 --split all --datasets agentdojo:fresh2_signature agentdojo:fresh2_ticket agentdojo:fresh2_faq
+python -m eval.live.agentdojo_live --model oracle --suite banking --attack none          # live harness, scripted agent
+python -m eval.live.agentdojo_live --model claude-haiku-4-5 --suite banking --attack important_instructions   # needs ANTHROPIC_API_KEY
+```
+
+## v0.3 summary
+
+v0.3 removed every false positive on the benchmarks and kept recall the same. It did not fix the main weakness, plain-language injections. All numbers are for the default `guard` mode on held-out data. "Fresh" templates are new injection wordings that were frozen in git before Agent Guard ever ran on them.
+
+| Benchmark (held out) | v0.2 caught / benign flagged | v0.3.1 caught / benign flagged |
+| --- | --- | --- |
+| AgentDojo `important_instructions` (test) | 84.9% / 16.7% | **100%** (264/264) / **0%** (0/36, 95% CI 0–10) |
+| AgentDojo `direct` (test) | 44.3% / 16.7% | 44.3% / **0%** |
+| Fresh templates, set 2 (frozen before v0.3.1, all suites) | 21–37% / 6.2% | 21–37% / **0%** (0/97, CI 0–4) |
+| Fresh templates, set 1 (all suites) | 24–44% / 6.2% | 24–44% / 0% |
+| InjecAgent base / enhanced (test) | 35.5% / 84.9%, 0% FP | unchanged |
+| R-Judge (test) | recall 57.4%, FPR 0.7% | recall 57.4%, **FPR 0%** |
+
+Latency is still under a millisecond at p50 (0.2–0.5 ms per call).
+
+**What changed**
+
+1. **Task-bound payments** (a simplified version of [CaMeL](https://arxiv.org/abs/2503.18813)'s capability idea). A payment is allowed without asking only if the user's own request asks for one, and every recipient comes from that request, or from a structured field of clean tool output (`recipient: GB29...`), or from a document the user named that lists exactly one account. Recipients that appear only in prose inside tool output, or inside detected instructions, still need approval. This is what took the AgentDojo false positives from 6 of 36 to 0. The rule was designed after the v0.2 report named those test-set false positives, so the 0% on the test split is not a blind estimate. The 0 of 97 on the fresh sets is the cleaner figure.
+2. **Side effects from tool metadata.** The MCP proxy reads MCP tool annotations (`readOnlyHint`, `destructiveHint`), and the action vocabulary now includes verbs such as `reserve`. This fixed the `reserve_hotel` miss reported for v0.2. The fix was made from a test-set miss, so the 100% on `important_instructions` is partly test-informed. The fresh templates are the cleaner measure.
+3. **Optional classifier stage.** `classifier:` in the policy turns on Prompt Guard 2 (local, through `transformers`) or a task-aware Claude judge for tool output that the rules found clean. It is **not evaluated yet**: Hugging Face weights can't be downloaded in the build environment, and the judge needs an API key. Until it is measured, treat it as untested.
+4. **Live-agent harness.** `eval/live/agentdojo_live.py` puts Agent Guard inside AgentDojo's pipeline as a defense. Blocked calls return an error to the model, and the run reports utility and attack success rate (ASR). It runs with a real Claude model, or with `--model oracle`, a scripted agent that always falls for the injection.
+
+**A regression found and fixed on the way.** v0.3.0 trusted any account number from tool output that had no detected instructions. On fresh set 1 this let hijacked payments through: recall fell 10–12 points, for example 23.6% to 12.1% on `fresh_polite`. Fresh set 2 was written and frozen **before** the fix (v0.3.1), which only trusts whole structured fields and single-account documents. On set 2, v0.3.0 scored 10–25% and v0.3.1 scored 21–37%, the same as v0.2. Fresh set 1 can no longer count as held out for v0.3.1, because the fix came from looking at its failures.
+
+### Live harness, scripted always-hijacked agent
+
+These runs use the oracle agent, not a real model. The no-attack runs show what the guard costs in utility, and the attacked runs show the upper bound on what it can stop.
+
+| Suite, attack | Utility, no guard → guard | ASR, no guard → guard |
+| --- | --- | --- |
+| Banking, no attack (16 tasks) | 100% → 100% (v0.2: 69%) | — |
+| Travel, no attack (20 tasks) | 95% → 95% | — |
+| Banking, `important_instructions` | 97.9% → 37.5% | 33.3% → 0% |
+| Travel, `important_instructions` | 17.9% → 65.0% | 78.6% → 0% |
+| Banking, fresh `fresh2_ticket` | 97.9% → 91.7% | 33.3% → 13.9% |
+| Travel, fresh `fresh2_ticket` | 17.9% → 17.9% | 78.6% → 78.6% |
+
+How to read this:
+
+* Utility under attack falls in banking because, once a session reads injected content, every payment goes back to needing approval. With no human in this harness, an "ask" counts as a block. That conservative choice costs utility.
+* Travel under the fresh template shows the plain-language gap at its worst. The rules see nothing, so nothing is stopped. This is the case the classifier stage is meant for.
+* The "ASR, no guard" column is the oracle's, not a real model's. Real models fall for far fewer injections, so a live run with Claude is needed before quoting any end-to-end ASR.
+
+### Still open
+
+* Live-agent results with a real model (needs `ANTHROPIC_API_KEY`).
+* Classifier results (Prompt Guard 2 on a machine that can download it; the Claude judge with a key).
+* Plain-language recall is still 21–44% on fresh and `direct` attacks.
+
+---
+
+# v0.2 evaluation (kept for comparison)
+
 Results as of 2026-11-27 for Agent Guard **v0.2.0** (commit `a9fae20`). Everything here can be reproduced with:
+
 
 ```bash
 eval/fetch_datasets.sh

@@ -1,0 +1,20 @@
+{
+  "name": "agent-guard",
+  "owner": {
+    "name": "Eshan Pandey",
+    "url": "https://github.com/eshanpandey"
+  },
+  "metadata": {
+    "description": "Agent Guard: a runtime guard that flags and blocks rogue AI agent behaviour."
+  },
+  "plugins": [
+    {
+      "name": "agent-guard",
+      "source": "./",
+      "description": "Checks every Claude Code tool call before it runs and blocks or asks about rogue actions, with a tamper-evident audit log.",
+      "version": "0.3.1",
+      "category": "security",
+      "homepage": "https://github.com/eshanpandey/agent-guard"
+    }
+  ]
+}

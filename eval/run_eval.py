@@ -52,6 +52,7 @@ def main() -> None:
     ap.add_argument("--split", choices=["dev", "test", "all"], default="dev")
     ap.add_argument("--datasets", nargs="*", default=DATASETS)
     ap.add_argument("--no-user-prompt", action="store_true", help="Do not give the guard the user's prompt.")
+    ap.add_argument("--policy", help="Policy overrides as JSON, e.g. a classifier: '{\"classifier\": {\"backend\": \"anthropic\"}}'")
     args = ap.parse_args()
     import common
     common.USE_USER_PROMPT = not args.no_user_prompt
@@ -59,12 +60,12 @@ def main() -> None:
     import agentguard
     out = {"label": args.label, "split": args.split, "agentguard_version": agentguard.__version__,
            "python": platform.python_version(), "machine": platform.machine(), "processor": platform.processor(),
-           "user_prompt_visible": not args.no_user_prompt, "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "datasets": {}}
+           "user_prompt_visible": not args.no_user_prompt, "policy": args.policy, "created": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "datasets": {}}
     for name in args.datasets:
         traces = traces_for(name)
         if args.split != "all":
             traces = [t for t in traces if t.split == args.split]
-        res = evaluate(traces)
+        res = evaluate(traces, json.loads(args.policy) if args.policy else None)
         out["datasets"][name] = {k: v for k, v in res.items() if not k.startswith("_")}
         unit = "trace" if name == "rjudge" else "call"
         print(f"\n{name}  ({res['traces']} traces, {res['harmful_traces']} harmful, {res['malicious_calls']} malicious calls)")
