@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
 from . import detectors as d
@@ -39,6 +40,17 @@ class Engine:
 
     # -- before a tool runs --------------------------------------------------
     def evaluate(self, call: ToolCall) -> Verdict:
+        with self._session(call.session_id):
+            return self._evaluate(call)
+
+    def _session(self, session_id: str):
+        # Hook integrations run one process per event, and Claude Code can fire hooks for
+        # parallel tool calls at once; a per-session lock keeps load -> save atomic so a
+        # taint written by one hook is never lost to another.
+        lock = getattr(self.store, "lock", None)
+        return lock(session_id) if lock else contextlib.nullcontext()
+
+    def _evaluate(self, call: ToolCall) -> Verdict:
         state = self.store.load(call.session_id)
         ctx = d.Context(call=call, policy=self.policy, state=state)
         findings: list[Finding] = []
@@ -58,6 +70,10 @@ class Engine:
 
     # -- after a tool returns ------------------------------------------------
     def observe(self, call: ToolCall, result: Any) -> Verdict:
+        with self._session(call.session_id):
+            return self._observe(call, result)
+
+    def _observe(self, call: ToolCall, result: Any) -> Verdict:
         text = result if isinstance(result, str) else ToolCall(tool="", args={"r": result}).text()
         state = self.store.load(call.session_id)
         findings = [f for f in d.inspect_result(call.tool, text) if f.rule_id not in self.policy.disabled_rules]
@@ -99,6 +115,10 @@ class Engine:
     # -- what the user asked for --------------------------------------------
     def observe_user(self, session_id: str, prompt: str) -> None:
         """Record the user's request as trusted intent (e.g. from a UserPromptSubmit hook)."""
+        with self._session(session_id):
+            self._observe_user(session_id, prompt)
+
+    def _observe_user(self, session_id: str, prompt: str) -> None:
         state = self.store.load(session_id)
         state.add_user_intent(pv.entities(prompt), pv.tokens(prompt), pv.identifiers(prompt))
         state.user_text = (state.user_text + "\n" + prompt).strip()[-4000:]

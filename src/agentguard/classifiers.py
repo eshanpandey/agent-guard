@@ -81,7 +81,7 @@ Answer with JSON only: {{"injection": true or false, "confidence": a number from
 class AnthropicJudge:
     name = "anthropic"
 
-    def __init__(self, model: str | None = None, timeout: float = 15.0) -> None:
+    def __init__(self, model: str | None = None, timeout: float = 6.0) -> None:
         self.key = os.environ.get("ANTHROPIC_API_KEY")
         if not self.key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")

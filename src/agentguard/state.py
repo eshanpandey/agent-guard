@@ -125,6 +125,10 @@ class FileStateStore:
         self.folder = Path(folder)
         self.folder.mkdir(parents=True, exist_ok=True)
 
+    def lock(self, session_id: str):
+        from .audit import _locked
+        return _locked(self._path(session_id))
+
     def _path(self, session_id: str) -> Path:
         safe = re.sub(r"[^A-Za-z0-9_.-]", "_", session_id)[:120] or "default"
         return self.folder / f"{safe}.json"
