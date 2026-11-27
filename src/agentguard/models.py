@@ -45,6 +45,8 @@ class ToolCall:
     agent: str = "unknown"
     cwd: str | None = None
     timestamp: float = field(default_factory=time.time)
+    # Optional tool metadata, e.g. MCP annotations {"readOnlyHint": true, "destructiveHint": false}
+    meta: dict[str, Any] | None = None
 
     def text(self) -> str:
         """All argument values flattened into one string, for pattern matching."""

@@ -55,7 +55,15 @@ def is_message_send(call: ToolCall) -> bool:
 
 
 def is_sink(call: ToolCall) -> bool:
-    """A tool whose name says it changes something: send, delete, transfer, grant..."""
+    """A tool that changes something: send, delete, transfer, grant, reserve...
+
+    Declared metadata wins (MCP tool annotations); otherwise the tool's name decides.
+    """
+    hints = (call.meta or {}).get("annotations") or call.meta or {}
+    if hints.get("destructiveHint") is True or hints.get("readOnlyHint") is False:
+        return True
+    if hints.get("readOnlyHint") is True:
+        return False
     words = {_stem(w) for w in pv.tokens(pv.split_identifier(call.tool))}
     return bool(words & _SINK_WORDS)
 
@@ -454,13 +462,52 @@ _FINANCIAL_CMD = re.compile(r"\b(solana\s+transfer|spl-token\s+transfer|cast\s+s
 _IDENTITY = re.compile(r"(?i)\b(sign ?up|register( account| user)?|create (account|profile|post)|(post|send|publish) (tweet|status|post)|tweet create|submit form)\b")
 
 
+_PAY_INTENT = {"pay", "paid", "send", "transfer", "money", "bill", "rent", "refund", "payment", "reimburse", "split",
+               "settle", "invoice", "donate", "tip", "fee", "subscription", "remaining", "difference"}
+
+
+_PAYEE_KEYS = {"recipient", "to", "payee", "beneficiary", "account", "iban", "name", "merchant"}
+
+
+def _payment_authorized(ctx: Context) -> bool:
+    """Task-bound capability check for a payment (CaMeL-style, simplified).
+
+    Allowed without asking only when all of these hold:
+    * the user's own request (seen via UserPromptSubmit or observe_user) asks for a payment;
+    * the call names at least one recipient (IBAN, account, email, address...);
+    * every recipient appeared in the user's request, or in tool output outside any
+      instruction, or in a document the user explicitly named; and none was planted by
+      an instruction in other tool output (a payee given by name must be named by the user);
+    * the session has not read injected content.
+    """
+    state = ctx.state
+    if not state.user_tokens or state.taint == "injected":
+        return False
+    if not ({_stem(t) for t in state.user_tokens} & {_stem(w) for w in _PAY_INTENT}):
+        return False
+    recipients = pv.entities(ctx.call.text())
+    planted = state.instruction_entities(exclude_user_pointed=True)
+    if recipients:
+        allowed = set(state.user_entities) | set(state.clean_entities) | (
+            state.instruction_entities() - planted)  # from a document the user named
+        return recipients <= allowed and not (recipients & planted)
+    # A payee given by name ("send Spotify the difference"): every word of it must be in the request.
+    names = [v for k, v in ctx.call.args.items() if isinstance(v, str) and k.lower() in _PAYEE_KEYS]
+    words = {w for v in names for w in pv.tokens(v)}
+    return bool(words) and words <= set(state.user_tokens)
+
+
 @detector("acts_on_behalf")
 def acts_on_behalf(ctx: Context) -> list[Finding]:
     call = ctx.call
     out: list[Finding] = []
     text = command_text(call) if is_shell(call) else ""
     if _FINANCIAL.search(call.tool) or _first(_FINANCIAL_CMD, text):
-        out.append(_f("acts_on_behalf", Severity.HIGH, "Moves money or crypto on the user's behalf", ["ASI09", "ASI02"], ["AML.T0048"], call.text()))
+        if _payment_authorized(ctx):
+            out.append(_f("acts_on_behalf", Severity.LOW, "Moves money as the user asked, to a recipient from their request "
+                          "or from clean data", ["ASI09"], [], call.text()))
+        else:
+            out.append(_f("acts_on_behalf", Severity.HIGH, "Moves money or crypto on the user's behalf", ["ASI09", "ASI02"], ["AML.T0048"], call.text()))
     elif _IDENTITY.search(pv.split_identifier(call.tool)) or re.search(r"(?i)https?://[^\s]*/(signup|sign-up|register|join)\b", call.text()):
         out.append(_f("acts_on_behalf", Severity.MEDIUM, "Creates an account or posts publicly as the user", ["ASI09", "ASI10"], ["AML.T0048"], call.text()))
     return out
@@ -563,6 +610,8 @@ def data_instruction_followed(ctx: Context) -> list[Finding]:
     user_words = {_stem(w) for w in state.user_tokens}
     best: Finding | None = None
     for ins in state.data_instructions:
+        if state.user_pointed(ins):
+            continue  # the user asked the agent to act on this document
         ins_words = {_stem(w) for w in ins["tokens"]}
         shared_entities = (call_entities & set(ins["entities"])) - user_entities
         shared_tool_words = (tool_words & ins_words) - user_words

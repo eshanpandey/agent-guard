@@ -44,7 +44,28 @@ emma johnson todo now new using use used via per its it's not but yes""".split()
 ACTION_WORDS = set("""send sent email mail forward reply post publish share invite add remove delete erase drop wipe
 transfer pay payment withdraw deposit buy purchase order sell trade grant unlock lock disable enable reset update
 change modify create schedule book cancel upload download install run execute deploy push merge approve accept
-transfer move copy rename write""".split())
+transfer move copy rename write reserve rent hire register subscribe unsubscribe submit sign confirm
+assign revoke invite kick ban archive purge""".split())
+
+
+_DATE_LIKE = re.compile(r"\d{1,4}([-/.])\d{1,2}\1\d{1,4}")
+_IDENT = re.compile(r"[A-Za-z0-9][\w.-]*(?:[._/-][\w.-]+)+|[A-Za-z]*\d[\w-]{3,}")
+
+
+def identifiers(value) -> set[str]:
+    """Specific names a request can point at: file names, paths, ids (bill-december-2023.txt, B08KFQ9HK5).
+
+    Plain words are left out, so 'fetch the product details' points at nothing in particular.
+    """
+    if isinstance(value, dict):
+        return set().union(*(identifiers(v) for v in value.values())) if value else set()
+    if isinstance(value, (list, tuple)):
+        return set().union(*(identifiers(v) for v in value)) if value else set()
+    if not isinstance(value, str):
+        return set()
+    value = _URL.sub(" ", _EMAIL.sub(" ", value))  # people and sites are not documents
+    return {m.group(0).lower().strip(".-") for m in _IDENT.finditer(value)
+            if len(m.group(0)) >= 6 and not _DATE_LIKE.fullmatch(m.group(0))}
 
 
 def entities(text: str) -> set[str]:
@@ -118,6 +139,7 @@ def _stem(w: str) -> str:
 
 
 _ACTION_STEMS = {_stem(w) for w in ACTION_WORDS}
+stem = _stem
 
 
 def is_request(sentence: str) -> bool:

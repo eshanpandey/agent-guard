@@ -34,6 +34,8 @@ class Engine:
         self.policy = policy or Policy()
         self.store = store or MemoryStateStore()
         self.audit = audit
+        from .classifiers import from_config
+        self.classifier = from_config(self.policy.classifier)
 
     # -- before a tool runs --------------------------------------------------
     def evaluate(self, call: ToolCall) -> Verdict:
@@ -59,12 +61,31 @@ class Engine:
         text = result if isinstance(result, str) else ToolCall(tool="", args={"r": result}).text()
         state = self.store.load(call.session_id)
         findings = [f for f in d.inspect_result(call.tool, text) if f.rule_id not in self.policy.disabled_rules]
+        if self.classifier and not findings and self.classifier.in_scope(call):
+            score = self.classifier.check(text, state.user_text)
+            if score is not None and score >= self.classifier.threshold:
+                findings.append(Finding("prompt_injection", Severity.MEDIUM,
+                                        f"Classifier ({self.classifier.backend.name}, {score:.2f}) found instructions "
+                                        f"aimed at the agent in {call.tool} output", ["ASI01", "ASI06"],
+                                        ["AML.T0051.001"], text[:200]))
+                # Treat the whole output as one strong instruction, so reusing anything planted
+                # in it (an address, an account) is caught by data_instruction_followed.
+                state.add_instruction("strong", call.tool, pv.entities(text), pv.tokens(text), sorted(pv.identifiers(call.args)))
         if findings:
             state.taint_with("injected", call.tool)
         elif d.is_untrusted_source(call.tool):
             state.taint_with("untrusted", call.tool)
-        for strength, span in pv.find_instructions(text):
-            state.add_instruction(strength, call.tool, pv.entities(span), pv.tokens(span))
+        instructions = pv.find_instructions(text)
+        source_ref = pv.identifiers(call.args)
+        in_spans: set[str] = set()
+        for strength, span in instructions:
+            ents = pv.entities(span)
+            in_spans |= ents
+            state.add_instruction(strength, call.tool, ents, pv.tokens(span), sorted(source_ref))
+        if not findings and not any(strength == "strong" for strength, _ in instructions):
+            # Values outside any instruction, in output with no injection, count as ordinary
+            # data the user's task can use (e.g. an IBAN in the transaction history).
+            state.add_clean_entities(pv.entities(text) - in_spans)
         self.store.save(call.session_id, state)
         # Injected content is never blocked itself: we flag it and watch what the agent does next.
         verdict = Verdict(Decision.FLAG if findings else Decision.ALLOW, findings)
@@ -76,7 +97,8 @@ class Engine:
     def observe_user(self, session_id: str, prompt: str) -> None:
         """Record the user's request as trusted intent (e.g. from a UserPromptSubmit hook)."""
         state = self.store.load(session_id)
-        state.add_user_intent(pv.entities(prompt), pv.tokens(prompt))
+        state.add_user_intent(pv.entities(prompt), pv.tokens(prompt), pv.identifiers(prompt))
+        state.user_text = (state.user_text + "\n" + prompt).strip()[-4000:]
         self.store.save(session_id, state)
 
     def _update_state(self, state: SessionState, call: ToolCall, findings: list[Finding]) -> None:

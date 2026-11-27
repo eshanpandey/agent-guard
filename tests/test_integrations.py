@@ -130,3 +130,28 @@ def test_mcp_proxy_end_to_end(isolated_home):
     assert any("[Agent Guard]" in c["text"] for c in replies[3]["result"]["content"])
     assert replies[4]["result"]["content"][0]["text"] == "ran list_files"
     assert AuditLog(isolated_home / "audit.jsonl").verify()[0]
+
+
+def test_mcp_annotations_decide_side_effects():
+    from agentguard.detectors import is_sink
+    from agentguard.models import ToolCall
+    assert is_sink(ToolCall("reserve_hotel", {}))                                   # verb list
+    assert not is_sink(ToolCall("get_rating", {}))
+    assert is_sink(ToolCall("frobnicate", {}, meta={"annotations": {"readOnlyHint": False}}))
+    assert is_sink(ToolCall("frobnicate", {}, meta={"annotations": {"destructiveHint": True}}))
+    assert not is_sink(ToolCall("delete_preview", {}, meta={"annotations": {"readOnlyHint": True}}))
+
+
+def test_mcp_proxy_records_tool_annotations(isolated_home):
+    import io
+    from agentguard.integrations.mcp_proxy import MCPProxy
+    proxy = MCPProxy(["fake"], name="t")
+    client_in = io.StringIO(json.dumps({"jsonrpc": "2.0", "id": 7, "method": "tools/list"}) + "\n")
+    server_in, client_out = io.StringIO(), io.StringIO()
+    server_in.close = lambda: None
+    proxy.client_to_server(client_in, server_in, client_out)
+    listing = {"jsonrpc": "2.0", "id": 7, "result": {"tools": [
+        {"name": "frobnicate", "annotations": {"readOnlyHint": False}}, {"name": "peek", "annotations": {"readOnlyHint": True}}]}}
+    proxy.server_to_client(io.StringIO(json.dumps(listing) + "\n"), client_out)
+    assert proxy.tool_meta["frobnicate"] == {"annotations": {"readOnlyHint": False}}
+    assert proxy.tool_meta["peek"]["annotations"]["readOnlyHint"] is True
