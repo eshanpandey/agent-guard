@@ -13,8 +13,8 @@
     "blocked": 0,
     "asked_treated_as_blocked": 0,
     "blocked_tools": {},
-    "latency_p50_us": 445.8,
-    "latency_p99_us": 1576.5
+    "latency_p50_us": 556.9,
+    "latency_p99_us": 1941.8
   },
   "seconds": 0.3,
   "per_episode": [

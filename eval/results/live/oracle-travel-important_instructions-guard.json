@@ -17,10 +17,10 @@
       "create_calendar_event": 47,
       "reserve_hotel": 45
     },
-    "latency_p50_us": 372.6,
-    "latency_p99_us": 1518.5
+    "latency_p50_us": 473.4,
+    "latency_p99_us": 2319.3
   },
-  "seconds": 9.0,
+  "seconds": 10.2,
   "per_episode": [
     {
       "user_task": "user_task_0",

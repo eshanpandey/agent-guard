@@ -9,7 +9,7 @@
   "utility": 0.1786,
   "asr": 0.7857,
   "guard_stats": null,
-  "seconds": 8.1,
+  "seconds": 8.9,
   "per_episode": [
     {
       "user_task": "user_task_0",
