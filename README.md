@@ -76,7 +76,34 @@ flowchart LR
 | `data_instruction_followed` | the agent does what text inside tool output asked, e.g. reuses an email, URL or account number planted there, and the user never asked for it | ASI01, ASI06 |
 | `runaway_agent` | message floods, loops, per-tool rate limits | ASI10, ASI08 |
 
-## Quick start
+## Install as a Claude Code plugin
+
+The fastest way to protect Claude Code. In Claude Code, run:
+
+```
+/plugin install agent-guard --marketplace eshanpandey/agent-guard
+```
+
+On Claude Code versions before 2.1.275, add the marketplace first:
+
+```
+/plugin marketplace add eshanpandey/agent-guard
+/plugin install agent-guard@agent-guard
+```
+
+That's it. No `pip install` is needed: the plugin runs the bundled code on the system's Python 3.10+ (`python3`). From then on every tool call goes through Agent Guard. Critical actions are refused with the reason shown to Claude, high-risk ones bring up the normal approval prompt, and tool output with injected instructions gets a warning added to Claude's context.
+
+| Command | What it does |
+| --- | --- |
+| `/agent-guard:report` | Summary of blocks, approvals and flags by OWASP Agentic Top 10 category |
+| `/agent-guard:recent [n]` | The last flagged, blocked or asked-about tool calls |
+| `/agent-guard:verify-log` | Proves the audit log was not edited, reordered or truncated |
+| `/agent-guard:status` | Active mode, policy and log location |
+| `/agent-guard:check <tool> <input>` | What Agent Guard would do with a call, without running it |
+
+Policies work the same as below: put a `.agentguard.yaml` in the project. Without PyYAML installed the plugin reads simple policies (mode, lists, rate limits, `change_freeze`); `custom_rules` need `pip install pyyaml`. If a policy can't be read, the plugin keeps using the default policy and says so, rather than switching off.
+
+## Quick start (Python package)
 
 ```bash
 pip install -e .            # Python 3.10+
@@ -84,7 +111,7 @@ agentguard replay           # run the 16-incident benchmark
 agentguard check Bash -c "cat ~/.aws/credentials"
 ```
 
-### Protect Claude Code
+### Protect Claude Code without the plugin
 
 ```bash
 cd your-project
