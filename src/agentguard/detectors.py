@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from typing import Callable
 from urllib.parse import urlparse
 
+from . import provenance as pv
 from .models import Finding, Severity, ToolCall
 from .policy import Policy
 from .state import SessionState
@@ -51,6 +52,22 @@ def is_email_send(call: ToolCall) -> bool:
 
 def is_message_send(call: ToolCall) -> bool:
     return is_email_send(call) or (bool(_MESSAGE.search(call.tool)) and not _FILE_READ.search(call.tool))
+
+
+def is_sink(call: ToolCall) -> bool:
+    """A tool whose name says it changes something: send, delete, transfer, grant..."""
+    words = {_stem(w) for w in pv.tokens(pv.split_identifier(call.tool))}
+    return bool(words & _SINK_WORDS)
+
+
+def _stem(w: str) -> str:
+    for suf in ("ing", "ed", "es", "s"):
+        if w.endswith(suf) and len(w) - len(suf) >= 3:
+            return w[: -len(suf)]
+    return w
+
+
+_SINK_WORDS = {_stem(w) for w in pv.ACTION_WORDS} - {"download", "copy"}
 
 
 def is_untrusted_source(tool: str) -> bool:
@@ -434,7 +451,7 @@ def production_change(ctx: Context) -> list[Finding]:
 
 _FINANCIAL = re.compile(r"(?i)(transfer|payment|pay_|purchase|checkout|buy_|swap|withdraw|send_(sol|eth|btc|crypto|funds|money)|place_order|trade)")
 _FINANCIAL_CMD = re.compile(r"\b(solana\s+transfer|spl-token\s+transfer|cast\s+send|bitcoin-cli\s+send\w*|stripe\s+(charges|payouts|transfers)\s+create)\b")
-_IDENTITY = re.compile(r"(?i)(sign_?up|register_account|create_account|create_profile|post_tweet|tweet|publish_post|create_post|submit_form)")
+_IDENTITY = re.compile(r"(?i)\b(sign ?up|register( account| user)?|create (account|profile|post)|(post|send|publish) (tweet|status|post)|tweet create|submit form)\b")
 
 
 @detector("acts_on_behalf")
@@ -444,7 +461,7 @@ def acts_on_behalf(ctx: Context) -> list[Finding]:
     text = command_text(call) if is_shell(call) else ""
     if _FINANCIAL.search(call.tool) or _first(_FINANCIAL_CMD, text):
         out.append(_f("acts_on_behalf", Severity.HIGH, "Moves money or crypto on the user's behalf", ["ASI09", "ASI02"], ["AML.T0048"], call.text()))
-    elif _IDENTITY.search(call.tool) or re.search(r"(?i)https?://[^\s]*/(signup|sign-up|register|join)\b", call.text()):
+    elif _IDENTITY.search(pv.split_identifier(call.tool)) or re.search(r"(?i)https?://[^\s]*/(signup|sign-up|register|join)\b", call.text()):
         out.append(_f("acts_on_behalf", Severity.MEDIUM, "Creates an account or posts publicly as the user", ["ASI09", "ASI10"], ["AML.T0048"], call.text()))
     return out
 
@@ -483,7 +500,8 @@ def tainted_action(ctx: Context) -> list[Finding]:
     call, state = ctx.call, ctx.state
     if state.taint == "none":
         return []
-    risky = is_shell(call) or is_message_send(call) or bool(_FINANCIAL.search(call.tool)) or (is_file_write(call) and ctx.outside_workspace(target_path(call) or "."))
+    risky = (is_shell(call) or is_message_send(call) or is_sink(call) or bool(_FINANCIAL.search(call.tool))
+             or (is_file_write(call) and ctx.outside_workspace(target_path(call) or ".")))
     if not risky:
         return []
     if state.taint == "injected":
@@ -528,6 +546,49 @@ def runaway_agent(ctx: Context) -> list[Finding]:
 
 
 # --------------------------------------------------------------------------- #
+# 11. Instruction provenance: the agent does what injected data told it to
+# --------------------------------------------------------------------------- #
+
+
+@detector("data_instruction_followed")
+def data_instruction_followed(ctx: Context) -> list[Finding]:
+    state, call = ctx.state, ctx.call
+    if not state.data_instructions:
+        return []
+    arg_text = call.text()
+    call_entities = pv.entities(arg_text)
+    tool_words = {_stem(w) for w in pv.tokens(pv.split_identifier(call.tool))}
+    call_words = tool_words | {_stem(w) for w in pv.tokens(arg_text)}
+    user_entities = set(state.user_entities)
+    user_words = {_stem(w) for w in state.user_tokens}
+    best: Finding | None = None
+    for ins in state.data_instructions:
+        ins_words = {_stem(w) for w in ins["tokens"]}
+        shared_entities = (call_entities & set(ins["entities"])) - user_entities
+        shared_tool_words = (tool_words & ins_words) - user_words
+        shared_action = shared_tool_words & _SINK_WORDS
+        shared_words = (call_words & ins_words) - user_words
+        # An entity planted by an obvious injection is suspicious wherever it is used
+        # (even a "read" like fetching a URL leaks data); one from an ordinary
+        # embedded request only when the call changes something.
+        if shared_entities and (ins["strength"] == "strong" or is_sink(call) or is_message_send(call) or is_shell(call)):
+            sev = Severity.HIGH
+            why = f"uses {sorted(shared_entities)[0]}, which appeared only in instructions inside {ins['source']} output"
+        elif shared_action and len(shared_words) >= 2:
+            sev = Severity.HIGH if ins["strength"] == "strong" else Severity.MEDIUM
+            why = f"performs '{sorted(shared_action)[0]}' as requested by text inside {ins['source']} output, not by the user"
+        else:
+            continue
+        if ins["strength"] == "strong":
+            sev = Severity.HIGH
+        f = _f("data_instruction_followed", sev, f"Agent appears to follow instructions planted in data: it {why}",
+               ["ASI01", "ASI06"], ["AML.T0051.001"], arg_text)
+        if best is None or f.severity > best.severity:
+            best = f
+    return [best] if best else []
+
+
+# --------------------------------------------------------------------------- #
 # Custom rules from the policy file
 # --------------------------------------------------------------------------- #
 
@@ -563,7 +624,7 @@ INJECTION = re.compile(
 
 def inspect_result(tool: str, result_text: str) -> list[Finding]:
     out = []
-    if m := INJECTION.search(result_text or ""):
+    if m := (INJECTION.search(result_text or "") or pv.STRONG.search(result_text or "")):
         out.append(_f("prompt_injection", Severity.MEDIUM,
                       f"Tool output from {tool} contains instructions aimed at the agent",
                       ["ASI01", "ASI06"], ["AML.T0051.001"], m.group(0)))

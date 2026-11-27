@@ -39,6 +39,12 @@ def handle(event: dict[str, Any], engine: Engine | None = None) -> dict[str, Any
     )
     engine = engine or _engine(cwd)
 
+    if name == "UserPromptSubmit":
+        # The user's own words are trusted intent; used to tell their requests
+        # apart from instructions planted in tool output.
+        engine.observe_user(call.session_id, str(event.get("prompt", "")))
+        return None
+
     if name == "PreToolUse":
         verdict = engine.evaluate(call)
         if verdict.decision in (Decision.BLOCK, Decision.ASK):
@@ -85,11 +91,14 @@ def install(settings_path: Path) -> Path:
     if settings_path.exists():
         settings = json.loads(settings_path.read_text() or "{}")
     hooks = settings.setdefault("hooks", {})
-    for event in ("PreToolUse", "PostToolUse"):
+    for event in ("UserPromptSubmit", "PreToolUse", "PostToolUse"):
         entries = hooks.setdefault(event, [])
         present = any(h.get("command") == HOOK_COMMAND for e in entries for h in e.get("hooks", []))
         if not present:
-            entries.append({"matcher": "*", "hooks": [{"type": "command", "command": HOOK_COMMAND}]})
+            entry: dict[str, Any] = {"hooks": [{"type": "command", "command": HOOK_COMMAND}]}
+            if event != "UserPromptSubmit":
+                entry["matcher"] = "*"
+            entries.append(entry)
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     settings_path.write_text(json.dumps(settings, indent=2) + "\n")
     return settings_path

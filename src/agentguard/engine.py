@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import detectors as d
+from . import provenance as pv
 from .audit import AuditLog
 from .models import Decision, Finding, Severity, ToolCall, Verdict
 from .policy import Policy
@@ -62,12 +63,21 @@ class Engine:
             state.taint_with("injected", call.tool)
         elif d.is_untrusted_source(call.tool):
             state.taint_with("untrusted", call.tool)
+        for strength, span in pv.find_instructions(text):
+            state.add_instruction(strength, call.tool, pv.entities(span), pv.tokens(span))
         self.store.save(call.session_id, state)
         # Injected content is never blocked itself: we flag it and watch what the agent does next.
         verdict = Verdict(Decision.FLAG if findings else Decision.ALLOW, findings)
         if self.audit and findings:
             self.audit.append("tool_result", call, verdict)
         return verdict
+
+    # -- what the user asked for --------------------------------------------
+    def observe_user(self, session_id: str, prompt: str) -> None:
+        """Record the user's request as trusted intent (e.g. from a UserPromptSubmit hook)."""
+        state = self.store.load(session_id)
+        state.add_user_intent(pv.entities(prompt), pv.tokens(prompt))
+        self.store.save(session_id, state)
 
     def _update_state(self, state: SessionState, call: ToolCall, findings: list[Finding]) -> None:
         if any(f.rule_id == "credential_access" for f in findings):

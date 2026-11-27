@@ -27,6 +27,11 @@ class SessionState:
     tool_times: dict[str, list[float]] = field(default_factory=dict)
     message_times: list[float] = field(default_factory=list)
     last_calls: list[str] = field(default_factory=list)
+    # Instructions found in tool output: {"strength", "source", "entities", "tokens"}
+    data_instructions: list[dict] = field(default_factory=list)
+    # What the user asked for, when the integration can see the prompt
+    user_entities: list[str] = field(default_factory=list)
+    user_tokens: list[str] = field(default_factory=list)
 
     @staticmethod
     def signature(call: ToolCall) -> str:
@@ -46,6 +51,15 @@ class SessionState:
         order = {"none": 0, "untrusted": 1, "injected": 2}
         if order[level] > order[self.taint]:
             self.taint, self.taint_source = level, source
+
+
+    def add_instruction(self, strength: str, source: str, entities: set[str], tokens: set[str]) -> None:
+        self.data_instructions = (self.data_instructions + [
+            {"strength": strength, "source": source, "entities": sorted(entities), "tokens": sorted(tokens)}])[-_MAX_CALLS:]
+
+    def add_user_intent(self, entities: set[str], tokens: set[str]) -> None:
+        self.user_entities = sorted(set(self.user_entities) | entities)
+        self.user_tokens = sorted(set(self.user_tokens) | tokens)
 
 
 class MemoryStateStore:
