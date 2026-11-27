@@ -21,6 +21,7 @@ from .hooks_base import (POST, PRE, PROMPT, SKIP, HookAdapter, HookEvent, HookRe
                          blocks, injection_warning, make_call, read_json, reason, write_json)
 
 HOOK_COMMAND = "agentguard hook gemini"
+_ENV_VARS = ("AGENTGUARD_HOME", "AGENTGUARD_POLICY")
 
 
 def _result_text(resp: Any) -> Any:
@@ -84,4 +85,12 @@ class GeminiAdapter(HookAdapter):
         add_nested_hook(hooks, "BeforeAgent", HOOK_COMMAND, None, extra)
         add_nested_hook(hooks, "BeforeTool", HOOK_COMMAND, ".*", extra)
         add_nested_hook(hooks, "AfterTool", HOOK_COMMAND, ".*", extra)
+        # Gemini CLI strips non-allowlisted environment variables from hook
+        # processes when redaction is on, and always under GitHub Actions
+        # (GITHUB_SHA set). Keep Agent Guard's own settings visible to the hook.
+        redaction = data.setdefault("security", {}).setdefault("environmentVariableRedaction", {})
+        allowed = redaction.setdefault("allowed", [])
+        for var in _ENV_VARS:
+            if var not in allowed:
+                allowed.append(var)
         return write_json(path, data)

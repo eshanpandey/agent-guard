@@ -144,7 +144,7 @@ def run_gemini(tmp: Path, command: str, proxy: bool = False) -> tuple[FakeLLM, s
     settings = tmp / "home" / ".gemini" / "settings.json"
     settings.parent.mkdir(parents=True, exist_ok=True)
     data = json.loads(settings.read_text()) if settings.exists() else {}
-    data["security"] = {"auth": {"selectedType": "gemini-api-key"}, "folderTrust": {"enabled": False}}
+    data.setdefault("security", {}).update({"auth": {"selectedType": "gemini-api-key"}, "folderTrust": {"enabled": False}})
     settings.write_text(json.dumps(data))
     # --yolo auto-approves every tool, so Agent Guard is the only check left.
     out = subprocess.run([exe, "-m", "fake-model", "--yolo", "-p", "set up the project"],

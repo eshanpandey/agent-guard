@@ -230,6 +230,7 @@ def test_install_layouts(tmp_path):
                                                           "timeout": 30, "statusMessage": "Agent Guard"}
     gem = json.loads(get("gemini").install(tmp_path / "g.json").read_text())
     assert gem["hooks"]["BeforeTool"][0]["matcher"] == ".*" and gem["hooks"]["BeforeTool"][0]["hooks"][0]["timeout"] == 30000
+    assert gem["security"]["environmentVariableRedaction"]["allowed"] == ["AGENTGUARD_HOME", "AGENTGUARD_POLICY"]
     cop = json.loads(get("copilot").install(tmp_path / "p.json").read_text())
     assert cop["version"] == 1 and cop["hooks"]["preToolUse"][0]["bash"] == "agentguard hook copilot"
 

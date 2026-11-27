@@ -53,6 +53,12 @@ not covered.
 **Gemini CLI.** Hooks run even in `--yolo` mode, which the end-to-end test
 uses on purpose: with every approval switched off, Agent Guard is the only
 check left. Gemini asks you to trust project-level hooks the first time.
+Gemini strips environment variables that aren't allowlisted from hook
+processes when redaction is on, and always under GitHub Actions; the installer
+adds `AGENTGUARD_HOME` and `AGENTGUARD_POLICY` to
+`security.environmentVariableRedaction.allowed` so a custom policy or log
+location still reaches the hook. (CI caught this: the hook blocked correctly
+but wrote its log to the default folder.)
 
 **GitHub Copilot.** `.github/hooks/*.json` is read by both the Copilot CLI and
 the Copilot cloud coding agent, so committing `agentguard install copilot`'s
