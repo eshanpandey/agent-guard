@@ -59,6 +59,34 @@ def hook_claude_code() -> None:
     sys.exit(run_hook())
 
 
+@hook.command("cursor")
+def hook_cursor() -> None:
+    """Handle a Cursor hook event from stdin."""
+    from .integrations.registry import get
+    sys.exit(get("cursor").run())
+
+
+@hook.command("codex")
+def hook_codex() -> None:
+    """Handle an OpenAI Codex CLI hook event from stdin."""
+    from .integrations.registry import get
+    sys.exit(get("codex").run())
+
+
+@hook.command("gemini")
+def hook_gemini() -> None:
+    """Handle a Gemini CLI hook event from stdin."""
+    from .integrations.registry import get
+    sys.exit(get("gemini").run())
+
+
+@hook.command("copilot")
+def hook_copilot() -> None:
+    """Handle a GitHub Copilot (CLI or cloud agent) hook event from stdin."""
+    from .integrations.registry import get
+    sys.exit(get("copilot").run())
+
+
 @main.group()
 def install() -> None:
     """Install Agent Guard into an agent."""
@@ -74,6 +102,46 @@ def install_claude_code(user: bool) -> None:
     click.echo(f"Agent Guard hooks added to {path}. Restart Claude Code to load them.")
 
 
+def _install_hooks(name: str, label: str, user: bool) -> None:
+    from .integrations.registry import get
+    adapter = get(name)
+    path = adapter.install(adapter.settings_path(user, Path.cwd()))
+    click.echo(f"Agent Guard hooks added to {path}. Restart {label} to load them.")
+    if adapter.post_install_note:
+        click.echo(adapter.post_install_note)
+
+
+_USER_HELP = "Install for every project (in your home folder) instead of this one."
+
+
+@install.command("cursor")
+@click.option("--user", is_flag=True, help=_USER_HELP)
+def install_cursor(user: bool) -> None:
+    """Add Agent Guard hooks to Cursor (.cursor/hooks.json)."""
+    _install_hooks("cursor", "Cursor", user)
+
+
+@install.command("codex")
+@click.option("--user", is_flag=True, help=_USER_HELP)
+def install_codex(user: bool) -> None:
+    """Add Agent Guard hooks to OpenAI Codex CLI (.codex/hooks.json)."""
+    _install_hooks("codex", "Codex", user)
+
+
+@install.command("gemini")
+@click.option("--user", is_flag=True, help=_USER_HELP)
+def install_gemini(user: bool) -> None:
+    """Add Agent Guard hooks to Gemini CLI (.gemini/settings.json)."""
+    _install_hooks("gemini", "Gemini CLI", user)
+
+
+@install.command("copilot")
+@click.option("--user", is_flag=True, help=_USER_HELP)
+def install_copilot(user: bool) -> None:
+    """Add Agent Guard hooks to GitHub Copilot CLI / cloud agent (.github/hooks/agentguard.json)."""
+    _install_hooks("copilot", "Copilot", user)
+
+
 @main.command(context_settings={"ignore_unknown_options": True})
 @click.option("--name", help="Label for this server in the audit log.")
 @click.argument("command", nargs=-1, type=click.UNPROCESSED, required=True)
@@ -81,6 +149,35 @@ def proxy(name: str | None, command: tuple[str, ...]) -> None:
     """Run an MCP server behind Agent Guard: agentguard proxy -- <server command>."""
     from .integrations.mcp_proxy import run_proxy
     sys.exit(run_proxy(list(command), name=name))
+
+
+@main.command("api-proxy")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", default=8787, show_default=True, type=int)
+@click.option("--openai-upstream", default="https://api.openai.com", show_default=True, help="Where OpenAI-format requests go (any OpenAI-compatible server).")
+@click.option("--anthropic-upstream", default="https://api.anthropic.com", show_default=True)
+@click.option("--gemini-upstream", default="https://generativelanguage.googleapis.com", show_default=True)
+@click.option("--on-ask", type=click.Choice(["block", "allow"]), default="block", show_default=True,
+              help="The proxy cannot ask a human: block calls the policy would ask about, or let them through as flags.")
+def api_proxy(host: str, port: int, openai_upstream: str, anthropic_upstream: str, gemini_upstream: str, on_ask: str) -> None:
+    """Guard any agent at the model API: check every tool call the model asks for.
+
+    Point the agent at the proxy, e.g. OPENAI_BASE_URL=http://127.0.0.1:8787/v1,
+    ANTHROPIC_BASE_URL=http://127.0.0.1:8787 or GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:8787.
+    """
+    from .integrations.api_proxy import ProxyConfig, serve
+    cfg = ProxyConfig(upstreams={"openai": openai_upstream, "anthropic": anthropic_upstream, "gemini": gemini_upstream},
+                      on_ask=on_ask)
+    srv = serve(host, port, cfg)
+    h, p = srv.server_address[:2]
+    click.echo(f"Agent Guard API proxy on http://{h}:{p}")
+    click.echo(f"  OpenAI:    OPENAI_BASE_URL=http://{h}:{p}/v1")
+    click.echo(f"  Anthropic: ANTHROPIC_BASE_URL=http://{h}:{p}")
+    click.echo(f"  Gemini:    GOOGLE_GEMINI_BASE_URL=http://{h}:{p}", err=False)
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
 
 
 @main.command()

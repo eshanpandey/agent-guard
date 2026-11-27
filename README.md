@@ -83,14 +83,41 @@ agentguard replay           # run the 16-incident benchmark
 agentguard check Bash -c "cat ~/.aws/credentials"
 ```
 
-### Protect Claude Code
+### Works with
+
+| You use | Set it up with | How it's tested |
+| --- | --- | --- |
+| Claude Code | `agentguard install claude-code` | unit tests; live in Claude Code |
+| OpenAI Codex CLI | `agentguard install codex` | real Codex CLI 0.172 run in CI |
+| Gemini CLI | `agentguard install gemini` | real Gemini CLI 0.71 run in CI |
+| GitHub Copilot CLI and cloud coding agent | `agentguard install copilot` | real Copilot CLI 1.0.117 run in CI |
+| Cursor (editor and CLI) | `agentguard install cursor` | unit tests on documented payloads only, not run in a real Cursor yet |
+| Any MCP client (Cursor, Windsurf, Cline, VS Code, Claude Desktop...) | `agentguard proxy -- <server>` in the MCP config | unit tests with a fake MCP server |
+| Anything that calls OpenAI, Anthropic or Gemini APIs (Aider, Continue, OpenHands, custom agents...) | `agentguard api-proxy`, then point the base URL at it | Codex, Gemini CLI, Copilot CLI and Claude Code run through it in CI; responses parsed by the official SDKs |
+| LangChain / LangGraph, OpenAI Agents SDK, CrewAI | `agentguard.frameworks.*` | real framework runs against a fake model |
+| Your own Python agent | `agentguard.sdk.AgentGuard` | unit tests |
+
+The CLI end-to-end tests drive each real agent with a scripted fake model that asks for a dangerous command, then check that the command never ran and that the agent told the model why. No API keys are involved. Details, per-agent caveats and what each mode can't see: [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md).
+
+### Protect a coding agent with hooks
 
 ```bash
 cd your-project
-agentguard install claude-code      # or --user for every project
+agentguard install claude-code      # or: codex, gemini, copilot, cursor. Add --user for every project
 ```
 
-This adds `UserPromptSubmit`, `PreToolUse` and `PostToolUse` hooks to `.claude/settings.json`. Blocked calls are refused with the reason shown to Claude. High-risk calls bring up Claude Code's normal approval prompt. Tool output with injected instructions gets a warning added to Claude's context.
+This adds the agent's own before-tool, after-tool and prompt hooks. Blocked calls are refused with the reason shown to the agent. Where the agent's hooks can ask a human (Claude Code, Copilot CLI, Cursor's shell hook), high-risk calls bring up its normal approval prompt; where they can't (Codex, Gemini CLI), high-risk calls are refused with a note telling the agent to check with the user. Tool output with injected instructions gets a warning added to the agent's context.
+
+### Protect any agent at the model API
+
+```bash
+agentguard api-proxy --port 8787
+export OPENAI_BASE_URL=http://127.0.0.1:8787/v1          # OpenAI-compatible clients
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787          # Anthropic clients
+export GOOGLE_GEMINI_BASE_URL=http://127.0.0.1:8787      # Gemini CLI / google-genai
+```
+
+The proxy checks every tool call in the model's response before the agent sees it. A blocked call is replaced by a text note, so the agent never runs it. Streaming works; text streams through as it arrives, and only tool calls are held until they're judged. Tool results going back to the model are scanned for planted instructions. Use `--openai-upstream` to put it in front of any OpenAI-compatible server (Ollama, vLLM, OpenRouter, a corporate gateway).
 
 ### Protect any MCP client
 
@@ -110,14 +137,26 @@ Put the proxy in front of any MCP server in your client's config:
 ### Use it in your own agent
 
 ```python
-from agentguard import Engine, ToolCall, load_policy
+from agentguard.sdk import AgentGuard, ToolBlocked
 
-guard = Engine(load_policy())
-verdict = guard.evaluate(ToolCall(tool="run_shell", args={"command": cmd}, session_id=run_id))
-if verdict.decision in ("block", "ask"):
-    raise PermissionError(verdict.summary())
-result = run_shell(cmd)
-guard.observe(ToolCall(tool="run_shell", args={"command": cmd}, session_id=run_id), result)
+guard = AgentGuard(session_id=run_id)
+guard.user(user_prompt)                 # what the user really asked for
+
+@guard.tool                             # checked before it runs, output scanned after
+def run_shell(command: str) -> str: ...
+```
+
+Framework adapters:
+
+```python
+from agentguard.frameworks.langchain import guard_tools              # LangChain / LangGraph
+tools = guard_tools([shell, search])
+
+from agentguard.frameworks.openai_agents import guard_function_tools  # OpenAI Agents SDK
+agent = Agent(name="dev", tools=guard_function_tools([shell]))
+
+from agentguard.frameworks.crewai import install                     # CrewAI
+install()
 ```
 
 ## Policy
@@ -156,7 +195,9 @@ agentguard report --format md       # findings by OWASP category and rule
 * The rules are pattern- and state-based. A determined attacker who knows them can phrase commands to avoid them. Agent Guard is one layer, alongside least-privilege credentials and sandboxing.
 * Injection detection uses phrase patterns plus instruction-provenance tracking, not a classifier. Recall on plain-language injections is 35–60% (see EVALUATION.md). A model-based second stage is the top roadmap item.
 * Hook mode fails open: if Agent Guard itself crashes, the agent keeps working, and the error goes to stderr.
-* MCP has no "ask a human" round-trip, so `ask` decisions are blocked in proxy mode, with the reason shown.
+* MCP, the API proxy, Codex hooks and Gemini CLI hooks have no "ask a human" round-trip, so `ask` decisions are blocked there, with the reason shown. (`agentguard api-proxy --on-ask allow` lets them through as flags.)
+* The API proxy sees what the model asked for, not what the agent finally ran. Hooks see the real call, so use hooks where the agent has them.
+* Agents' hook systems are guardrails, not sandboxes: Codex documents tool paths that skip hooks, and several agents let a timed-out hook proceed.
 
 ## Roadmap
 
@@ -164,7 +205,7 @@ agentguard report --format md       # findings by OWASP category and rule
 2. Short-lived, task-scoped credential broker
 3. Web dashboard, plus OpenTelemetry and SIEM export
 4. Pre-install scanner for skills, MCP servers and model files
-5. LangGraph, OpenAI Agents SDK and A2A adapters
+5. A2A and Google ADK adapters; a real-Cursor end-to-end test
 
 ## License
 

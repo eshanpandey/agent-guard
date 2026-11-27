@@ -15,3 +15,20 @@ jobs:
       - run: pytest -q
       - name: Incident replay benchmark
         run: agentguard replay
+
+  # Runs the real coding-agent CLIs and agent frameworks against a scripted fake
+  # model (no API keys, no network beyond package installs).
+  agents-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -e ".[dev,langchain,openai-agents,crewai,sdk-tests]"
+      - name: Install agent CLIs (versions verified when the adapters were written)
+        run: npm install -g @openai/codex@0.172.0 @google/gemini-cli@0.71.1 @github/copilot@1.0.117 @anthropic-ai/claude-code@2.1.332
+      - run: pytest -q tests/test_agent_e2e.py tests/test_api_proxy.py tests/test_frameworks.py -rs

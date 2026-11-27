@@ -19,6 +19,11 @@ classifiers = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7"]
+langchain = ["langchain-core>=0.3"]
+openai-agents = ["openai-agents>=0.6"]
+crewai = ["crewai>=1.0"]
+# Only needed to run the SDK compatibility tests for the API proxy; the proxy itself is stdlib-only.
+sdk-tests = ["openai>=1.50", "anthropic>=0.40", "google-genai>=1.0"]
 
 [project.scripts]
 agentguard = "agentguard.cli:main"
