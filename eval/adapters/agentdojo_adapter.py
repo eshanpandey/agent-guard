@@ -26,7 +26,7 @@ from agentdojo.functions_runtime import FunctionsRuntime
 from agentdojo.task_suite.load_suites import get_suites
 
 from common import Step, Trace
-from fresh_attacks import TEMPLATES as FRESH, check_frozen
+from fresh_attacks import ALL as FRESH, check_frozen
 
 SPLIT = {"workspace": "dev", "slack": "dev", "banking": "test", "travel": "test"}
 
