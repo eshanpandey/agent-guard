@@ -32,6 +32,7 @@ RULES = {
     "tainted_action": "Risky action after reading untrusted or injected content",
     "runaway_agent": "Loops, floods and rate-limit breaches",
     "prompt_injection": "Tool output carries instructions aimed at the agent",
+    "data_instruction_followed": "Agent acts on instructions found in tool output, not the user's request",
 }
 
 

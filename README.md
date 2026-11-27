@@ -4,6 +4,16 @@
 
 Each detection rule comes from a real incident. Out of the box it catches **16 of 16 replayed real-world incidents**, from the Replit database wipe to the ClawHub skill malware, and flags **0 of 4 normal sessions**.
 
+It is also measured on public research benchmarks, on held-out test splits ([full evaluation](EVALUATION.md)):
+
+| Benchmark | Attacks caught | Benign flagged | Latency p50 |
+| --- | --- | --- | --- |
+| AgentDojo (`important_instructions` / `direct` attack) | 84.8% / 44.3% | 16.7% | 0.26 ms |
+| InjecAgent (enhanced / base) | 84.8% / 35.5% | 0% | 0.2 ms |
+| R-Judge unsafe-record detection | F1 0.73 | 0.8% | 0.3 ms |
+
+The weakest case is plain-language injections. [EVALUATION.md](EVALUATION.md) covers the method, comparisons with published guards, and every known limitation.
+
 ```
 $ agentguard check Bash -c "q chat --trust-all-tools --no-interactive 'delete cloud resources'"
 BLOCK
@@ -31,7 +41,7 @@ The pattern behind them: **untrusted content steers an agent that holds broad cr
 flowchart LR
     A[AI agent<br/>Claude Code, MCP client,<br/>custom agent] -->|tool call| G
     subgraph G[Agent Guard]
-      D[13 detection rules] --> P[Policy<br/>monitor / guard / enforce]
+      D[14 detection rules] --> P[Policy<br/>monitor / guard / enforce]
       S[(Session state<br/>taint, rates)] --- D
     end
     P -->|allow / flag| T[Tool runs]
@@ -61,7 +71,8 @@ flowchart LR
 | `acts_on_behalf` | payments, crypto transfers, sign-ups, public posts | ASI09 |
 | `scope_violation` | writes outside the workspace, edits to `.bashrc`, crontab, LaunchAgents | ASI03 |
 | `prompt_injection` | tool output containing instructions aimed at the agent | ASI01, ASI06 |
-| `tainted_action` | risky actions right after reading injected content | ASI01 |
+| `tainted_action` | side-effecting actions right after reading injected content | ASI01 |
+| `data_instruction_followed` | the agent does what text inside tool output asked, e.g. reuses an email, URL or account number planted there, and the user never asked for it | ASI01, ASI06 |
 | `runaway_agent` | message floods, loops, per-tool rate limits | ASI10, ASI08 |
 
 ## Quick start
@@ -79,7 +90,7 @@ cd your-project
 agentguard install claude-code      # or --user for every project
 ```
 
-This adds `PreToolUse` and `PostToolUse` hooks to `.claude/settings.json`. Blocked calls are refused with the reason shown to Claude. High-risk calls bring up Claude Code's normal approval prompt. Tool output with injected instructions gets a warning added to Claude's context.
+This adds `UserPromptSubmit`, `PreToolUse` and `PostToolUse` hooks to `.claude/settings.json`. Blocked calls are refused with the reason shown to Claude. High-risk calls bring up Claude Code's normal approval prompt. Tool output with injected instructions gets a warning added to Claude's context.
 
 ### Protect any MCP client
 
@@ -143,7 +154,7 @@ agentguard report --format md       # findings by OWASP category and rule
 ## Limits (v0.1)
 
 * The rules are pattern- and state-based. A determined attacker who knows them can phrase commands to avoid them. Agent Guard is one layer, alongside least-privilege credentials and sandboxing.
-* Injection detection uses phrase patterns, not a classifier. A model-based detector can plug in later.
+* Injection detection uses phrase patterns plus instruction-provenance tracking, not a classifier. Recall on plain-language injections is 35–60% (see EVALUATION.md). A model-based second stage is the top roadmap item.
 * Hook mode fails open: if Agent Guard itself crashes, the agent keeps working, and the error goes to stderr.
 * MCP has no "ask a human" round-trip, so `ask` decisions are blocked in proxy mode, with the reason shown.
 

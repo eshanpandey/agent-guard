@@ -66,7 +66,7 @@ USE_USER_PROMPT = True
 
 def run_trace(trace: Trace, policy: dict[str, Any] | None = None) -> TraceOutcome:
     engine = Engine(from_dict({"workspace": "/workspace/project", **(policy or {})}), MemoryStateStore())
-    if USE_USER_PROMPT and trace.meta.get("user_prompt"):
+    if USE_USER_PROMPT and trace.meta.get("user_prompt") and hasattr(engine, "observe_user"):
         engine.observe_user(trace.id, trace.meta["user_prompt"])
     outcomes = []
     t = 1_700_000_000.0
