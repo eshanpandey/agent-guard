@@ -1,0 +1,28 @@
+{
+  "description": "Agent Guard: records the user's intent, checks each tool call before it runs, and scans tool output for injected instructions.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/agentguard_hook.py\"", "timeout": 10}
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/agentguard_hook.py\"", "timeout": 10}
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/agentguard_hook.py\"", "timeout": 10}
+        ]
+      }
+    ]
+  }
+}
